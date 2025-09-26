@@ -249,14 +249,19 @@ async function initAudio() {
 
 // 교차 상관 계산
 function calculateCrossCorrelation(signal1, signal2) {
-    const minLength = Math.min(signal1.length, signal2.length);
+    // 입력 길이 제한으로 실시간 성능 향상
+    const MAX_LEN = 2048;
+    const minLength = Math.min(signal1.length, signal2.length, MAX_LEN);
     const correlation = [];
     let maxCorr = 0;
     
-    for (let lag = 0; lag < minLength / 2; lag++) {
+    for (let lag = 0; lag < Math.floor(minLength / 2); lag++) {
         let sum = 0;
         for (let i = 0; i < minLength - lag; i++) {
-            sum += signal1[i] * signal2[i + lag];
+            // 안전하게 숫자로 변환
+            const a = Number(signal1[i]) || 0;
+            const b = Number(signal2[i + lag]) || 0;
+            sum += a * b;
         }
         correlation[lag] = sum;
         maxCorr = Math.max(maxCorr, Math.abs(sum));
@@ -284,23 +289,26 @@ function updateCalibrationMessage() {
         'hihat': 'Play hi-hat for 3 seconds...',
         'done': 'Calibration Complete!'
     };
-    
-    elements.calibrationMessage.textContent = messages[calibrationStep] || '';
+    if (elements && elements.calibrationMessage) {
+        elements.calibrationMessage.textContent = messages[calibrationStep] || '';
+    }
 }
 
 // 드럼 상태 업데이트
 function updateDrumStatus() {
-    elements.kickStatus.className = drumSamples.kick ? 'drum-badge active' : 'drum-badge inactive';
-    elements.snareStatus.className = drumSamples.snare ? 'drum-badge active' : 'drum-badge inactive';
-    elements.hihatStatus.className = drumSamples.hihat ? 'drum-badge active' : 'drum-badge inactive';
-    
-    elements.kickStatus.textContent = drumSamples.kick ? 'Kick Drum ✓' : 'Kick Drum';
-    elements.snareStatus.textContent = drumSamples.snare ? 'Snare ✓' : 'Snare';
-    elements.hihatStatus.textContent = drumSamples.hihat ? 'Hi-Hat ✓' : 'Hi-Hat';
-    
-    // 모니터링 버튼 활성화 조건
-    const hasAnySample = drumSamples.kick || drumSamples.snare || drumSamples.hihat;
-    elements.monitorBtn.disabled = !hasAnySample || isCalibrating;
+    if (elements) {
+        if (elements.kickStatus) elements.kickStatus.className = drumSamples.kick ? 'drum-badge active' : 'drum-badge inactive';
+        if (elements.snareStatus) elements.snareStatus.className = drumSamples.snare ? 'drum-badge active' : 'drum-badge inactive';
+        if (elements.hihatStatus) elements.hihatStatus.className = drumSamples.hihat ? 'drum-badge active' : 'drum-badge inactive';
+
+        if (elements.kickStatus) elements.kickStatus.textContent = drumSamples.kick ? 'Kick Drum ✓' : 'Kick Drum';
+        if (elements.snareStatus) elements.snareStatus.textContent = drumSamples.snare ? 'Snare ✓' : 'Snare';
+        if (elements.hihatStatus) elements.hihatStatus.textContent = drumSamples.hihat ? 'Hi-Hat ✓' : 'Hi-Hat';
+
+        // 모니터링 버튼 활성화 조건
+        const hasAnySample = drumSamples.kick || drumSamples.snare || drumSamples.hihat;
+        if (elements.monitorBtn) elements.monitorBtn.disabled = !hasAnySample || isCalibrating;
+    }
 }
 
 // 캘리브레이션 처리
@@ -310,20 +318,26 @@ function handleCalibration() {
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Float32Array(bufferLength);
     analyser.getFloatTimeDomainData(dataArray);
+    // 오디오 데이터 수집 (안전하게 샘플레이트 기반으로 계산)
+    const chunk = Array.from(dataArray);
+    calibrationBuffer.push(...chunk);
+    calibrationProgress += chunk.length;
 
-    // 오디오 데이터 수집
-    calibrationBuffer.push(...Array.from(dataArray.slice(0, 512)));
-    calibrationProgress += 512;
-    
-    // 진행률 업데이트
-    const totalSamples = 44100 * 2.5; // 2.5초
+    const sampleRate = audioContext && audioContext.sampleRate ? audioContext.sampleRate : 44100;
+    const totalSamples = Math.floor(sampleRate * 2.5); // 2.5초 기준
     const progress = Math.min(100, (calibrationProgress / totalSamples) * 100);
-    elements.progressFill.style.width = progress + '%';
+    if (elements && elements.progressFill) elements.progressFill.style.width = progress + '%';
+
+    // 버퍼가 너무 커지지 않도록 제한 (안전장치)
+    const maxBuffer = sampleRate * 5; // 최대 5초치
+    if (calibrationBuffer.length > maxBuffer) {
+        calibrationBuffer = calibrationBuffer.slice(-maxBuffer);
+    }
     
     // 충분한 데이터가 수집되었을 때
     if (calibrationProgress >= totalSamples) {
-        // 마지막 1초 데이터만 사용
-        const sampleData = calibrationBuffer.slice(-22050); // 1초분 데이터
+    // 마지막 1초 데이터만 사용
+    const sampleData = calibrationBuffer.slice(-Math.floor(sampleRate * 1)); // 1초분 데이터
         
         drumSamples[calibrationStep] = sampleData;
         calibrationBuffer = [];
@@ -393,47 +407,47 @@ function detectDrum() {
     const isHihatHit = detectionScores.hihat > hihatThreshold;
     
     const shouldDetectBeat = isKickHit || isSnareHit || (isHihatHit && !isKickHit && !isSnareHit);
-    
+
     if (shouldDetectBeat) {
+        // 최소 200ms 간격을 두어 더블감지 방지
         if (!lastBeatTime || currentTime - lastBeatTime > 200) {
-            lastBeatTime = currentTime;
-            
             if (lastBeatTime) {
                 const interval = currentTime - lastBeatTime;
                 beatInterval = [...beatInterval, interval].slice(-8);
-                
+
                 if (beatInterval.length >= 4) {
                     const sortedIntervals = [...beatInterval].sort((a, b) => a - b);
                     const median = sortedIntervals[Math.floor(sortedIntervals.length / 2)];
-                    const validIntervals = beatInterval.filter(interval => 
-                        Math.abs(interval - median) < median * 0.25
-                    );
-                    
+                    const validIntervals = beatInterval.filter(i => Math.abs(i - median) < median * 0.25);
+
                     if (validIntervals.length >= 3) {
                         const avgInterval = validIntervals.reduce((a, b) => a + b) / validIntervals.length;
                         const newBPM = Math.round(60000 / avgInterval);
-                        
+
                         if (newBPM >= 60 && newBPM <= 200) {
                             currentBPM = newBPM;
-                            
+
                             // 차트 데이터 업데이트
                             bpmChartData.push(newBPM);
                             if (bpmChartData.length > 100) {
                                 bpmChartData = bpmChartData.slice(-50); // 최근 50개만 유지
                             }
-                            
-                            bpmHistory = [...bpmHistory, { 
-                                time: Date.now(), 
+
+                            bpmHistory = [...bpmHistory, {
+                                time: Date.now(),
                                 bpm: newBPM,
                                 confidence: (detectionScores.kick + detectionScores.snare + detectionScores.hihat) / 3 * 100
                             }].slice(-50);
-                            
+
                             updateUI();
                             drawChart(); // 차트 업데이트
                         }
                     }
                 }
             }
+
+            // 마지막으로 감지된 비트 시간은 모든 계산 후에 업데이트
+            lastBeatTime = currentTime;
         }
     }
 
@@ -444,41 +458,45 @@ function detectDrum() {
 
 // UI 업데이트
 function updateUI() {
-    elements.currentBpm.textContent = currentBPM;
-    
+    if (!elements) return;
+
+    if (elements.currentBpm) elements.currentBpm.textContent = currentBPM;
+
     const bpmDifference = Math.abs(currentBPM - targetBPM);
     const accuracy = Math.max(0, 100 - (bpmDifference * 3));
-    elements.accuracy.textContent = accuracy.toFixed(1) + '%';
-    elements.accuracyFill.style.width = accuracy + '%';
-    
+    if (elements.accuracy) elements.accuracy.textContent = accuracy.toFixed(1) + '%';
+    if (elements.accuracyFill) elements.accuracyFill.style.width = accuracy + '%';
+
     // 색상 변경
-    if (bpmDifference <= 2) {
-        elements.currentBpm.style.color = '#10b981';
-        elements.accuracyFill.style.background = '#10b981';
-    } else if (bpmDifference <= 5) {
-        elements.currentBpm.style.color = '#eab308';
-        elements.accuracyFill.style.background = '#eab308';
-    } else {
-        elements.currentBpm.style.color = '#ef4444';
-        elements.accuracyFill.style.background = '#ef4444';
+    if (elements.currentBpm && elements.accuracyFill) {
+        if (bpmDifference <= 2) {
+            elements.currentBpm.style.color = '#10b981';
+            elements.accuracyFill.style.background = '#10b981';
+        } else if (bpmDifference <= 5) {
+            elements.currentBpm.style.color = '#eab308';
+            elements.accuracyFill.style.background = '#eab308';
+        } else {
+            elements.currentBpm.style.color = '#ef4444';
+            elements.accuracyFill.style.background = '#ef4444';
+        }
     }
-    
-    elements.totalBeats.textContent = bpmHistory.length;
-    elements.avgBpm.textContent = bpmHistory.length > 0 ? 
-        Math.round(bpmHistory.reduce((a, b) => a + b.bpm, 0) / bpmHistory.length) : 0;
-    elements.bpmDiff.textContent = bpmDifference;
+
+    if (elements.totalBeats) elements.totalBeats.textContent = bpmHistory.length;
+    if (elements.avgBpm) elements.avgBpm.textContent = bpmHistory.length > 0 ? Math.round(bpmHistory.reduce((a, b) => a + b.bpm, 0) / bpmHistory.length) : 0;
+    if (elements.bpmDiff) elements.bpmDiff.textContent = bpmDifference;
 }
 
 // 드럼 레벨 업데이트
 function updateDrumLevels() {
-    elements.kickValue.textContent = drumLevels.kick + '%';
-    elements.kickFill.style.height = drumLevels.kick + '%';
-    
-    elements.snareValue.textContent = drumLevels.snare + '%';
-    elements.snareFill.style.height = drumLevels.snare + '%';
-    
-    elements.hihatValue.textContent = drumLevels.hihat + '%';
-    elements.hihatFill.style.height = drumLevels.hihat + '%';
+    if (!elements) return;
+    if (elements.kickValue) elements.kickValue.textContent = drumLevels.kick + '%';
+    if (elements.kickFill) elements.kickFill.style.height = drumLevels.kick + '%';
+
+    if (elements.snareValue) elements.snareValue.textContent = drumLevels.snare + '%';
+    if (elements.snareFill) elements.snareFill.style.height = drumLevels.snare + '%';
+
+    if (elements.hihatValue) elements.hihatValue.textContent = drumLevels.hihat + '%';
+    if (elements.hihatFill) elements.hihatFill.style.height = drumLevels.hihat + '%';
 }
 
 // 캘리브레이션 시작
@@ -489,12 +507,13 @@ async function startCalibration() {
         calibrationStep = 'kick';
         calibrationBuffer = [];
         calibrationProgress = 0;
-        
-        elements.calibrateBtn.disabled = true;
-        elements.calibrationMessage.style.display = 'block';
-        elements.progressContainer.style.display = 'block';
-        elements.progressFill.style.width = '0%';
-        
+        if (elements) {
+            if (elements.calibrateBtn) elements.calibrateBtn.disabled = true;
+            if (elements.calibrationMessage) elements.calibrationMessage.style.display = 'block';
+            if (elements.progressContainer) elements.progressContainer.style.display = 'block';
+            if (elements.progressFill) elements.progressFill.style.width = '0%';
+        }
+
         updateCalibrationMessage();
         handleCalibration();
     }
@@ -525,34 +544,54 @@ async function toggleMonitoring() {
         }
     } else {
         isRecording = false;
-        
+        // 애니메이션 프레임 취소 및 null 처리
         if (animationFrame) {
             cancelAnimationFrame(animationFrame);
+            animationFrame = null;
         }
+
+        // 스트림 트랙 정리
         if (stream) {
-            stream.getTracks().forEach(track => track.stop());
+            try {
+                stream.getTracks().forEach(track => track.stop());
+            } catch (e) {
+                console.warn('Error stopping tracks', e);
+            }
+            stream = null;
         }
+
+        // 오디오 컨텍스트 닫기
         if (audioContext) {
-            audioContext.close();
+            try {
+                audioContext.close();
+            } catch (e) {
+                console.warn('Error closing audioContext', e);
+            }
+            audioContext = null;
+            analyser = null;
         }
-        
-        elements.monitorBtn.textContent = '▶ Start Monitoring';
-        elements.monitorBtn.classList.remove('recording');
-        elements.status.textContent = 'STANDBY';
-        elements.status.style.color = '#ef4444';
+
+        if (elements.monitorBtn) elements.monitorBtn.textContent = '▶ Start Monitoring';
+        if (elements.monitorBtn) elements.monitorBtn.classList.remove('recording');
+        if (elements.status) {
+            elements.status.textContent = 'STANDBY';
+            elements.status.style.color = '#ef4444';
+        }
     }
 }
 
 // 이벤트 리스너
-elements.targetBpm.addEventListener('input', (e) => {
-    targetBPM = parseInt(e.target.value);
-    if (isRecording) {
-        drawChart(); // Target BPM이 변경되면 차트 업데이트
-    }
-});
+if (elements.targetBpm) {
+    elements.targetBpm.addEventListener('input', (e) => {
+        targetBPM = parseInt(e.target.value);
+        if (isRecording) {
+            drawChart(); // Target BPM이 변경되면 차트 업데이트
+        }
+    });
+}
 
-elements.calibrateBtn.addEventListener('click', startCalibration);
-elements.monitorBtn.addEventListener('click', toggleMonitoring);
+if (elements.calibrateBtn) elements.calibrateBtn.addEventListener('click', startCalibration);
+if (elements.monitorBtn) elements.monitorBtn.addEventListener('click', toggleMonitoring);
 
 // 화면 리사이즈 시 차트 업데이트
 window.addEventListener('resize', () => {
@@ -614,21 +653,22 @@ if ('serviceWorker' in navigator) {
 
             self.addEventListener('install', (event) => {
                 event.waitUntil(
-                    caches.open(CACHE_NAME)
-                        .then((cache) => cache.addAll(urlsToCache))
+                    caches.open(CACHE_NAME).then(async (cache) => {
+                        try {
+                            await cache.addAll(urlsToCache);
+                        } catch (e) {
+                            // 일부 파일이 없을 경우 전체 설치 실패를 방지
+                            console.warn('Some resources failed to cache during install', e);
+                        }
+                    })
                 );
             });
 
             self.addEventListener('fetch', (event) => {
                 event.respondWith(
-                    caches.match(event.request)
-                        .then((response) => {
-                            if (response) {
-                                return response;
-                            }
-                            return fetch(event.request);
-                        }
-                    )
+                    caches.match(event.request).then((response) => {
+                        return response || fetch(event.request).catch(() => {});
+                    })
                 );
             });
         `;
@@ -679,22 +719,34 @@ document.addEventListener('visibilitychange', () => {
 // 터치 이벤트 최적화
 document.addEventListener('touchstart', () => {}, { passive: true });
 document.addEventListener('touchmove', (e) => {
-    // 페이지 스크롤 방지
-    if (e.target === document.body) {
-        e.preventDefault();
+    // 페이지 스크롤 방지: 모니터링 중일 때만 전체 스크롤 차단
+    try {
+        if (isRecording && e.target === document.body) {
+            e.preventDefault();
+        }
+    } catch (err) {
+        // 안전하게 예외 무시
     }
 }, { passive: false });
 
 // 초기화
 window.addEventListener('load', () => {
     optimizeForMobile();
-    updateDrumStatus();
-    
-    // 차트 초기화
-    setTimeout(() => {
-        initChart();
-        drawChart();
-    }, 100);
+
+    // 안전하게 요소들이 존재하는지 확인한 뒤 초기화 수행
+    try {
+        if (elements) {
+            if (typeof updateDrumStatus === 'function') updateDrumStatus();
+        }
+
+        // 차트 초기화
+        setTimeout(() => {
+            initChart();
+            drawChart();
+        }, 100);
+    } catch (err) {
+        console.warn('Initialization warning:', err);
+    }
 });
 
 // 오디오 컨텍스트 자동 재개 (iOS Safari 대응)
