@@ -103,6 +103,16 @@
             align-items: center;
             gap: 1rem;
         }
+
+        /* 캘리브레이션 버튼을 가로로 배치하기 위한 클래스 */
+        .calibration-buttons {
+            display: flex;
+            flex-direction: row;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
         
         .calibration-message {
             font-size: 1.125rem;
@@ -140,6 +150,9 @@
         .btn-calibrate {
             background: #d97706;
             color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            min-width: 110px;
         }
         
         .btn-calibrate:hover {
@@ -454,7 +467,28 @@
             <div id="inputLevelValue" style="width:3.5rem; text-align:right; color:#9ca3af; font-size:0.875rem;">0%</div>
         </div>
 
-        <!-- 캘리브레이션 섹션 -->
+        <!-- 실시간 BPM 트렌드 -->
+        <div class="drum-detection" style="margin-bottom: 1.5rem;">
+            <div class="control-title">📈 Real-time BPM Trend</div>
+            <div style="position: relative; height: 200px; background: #374151; border-radius: 0.5rem; overflow: hidden;">
+                <canvas id="bpmChart" style="width: 100%; height: 100%;"></canvas>
+                <div id="chartLegend" style="position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 1rem; font-size: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <div style="width: 12px; height: 2px; background: #06b6d4;"></div>
+                        <span style="color: #06b6d4;">Target</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.25rem;">
+                        <div style="width: 12px; height: 2px; background: #10b981;"></div>
+                        <span style="color: #10b981;">Current</span>
+                    </div>
+                </div>
+                <div id="bpmRange" style="position: absolute; bottom: 0.5rem; left: 0.5rem; font-size: 0.75rem; color: #9ca3af;">
+                    Range: <span id="minBpm">0</span> - <span id="maxBpm">0</span> BPM
+                </div>
+            </div>
+        </div>
+
+        <!-- 캘리브레이션 섹션 (하단으로 이동) -->
         <div class="calibration-section">
             <div class="calibration-title">
                 🎯 Drum Sound Calibration
@@ -475,7 +509,7 @@
                     <div id="progressFill" class="progress-fill" style="width: 0%"></div>
                 </div>
 
-                <div class="calibration-controls">
+                <div class="calibration-buttons">
                     <button id="calibrateKickBtn" class="btn btn-calibrate">Calibrate Kick</button>
                     <button id="calibrateSnareBtn" class="btn btn-calibrate">Calibrate Snare</button>
                     <button id="calibrateHihatBtn" class="btn btn-calibrate">Calibrate Hi-Hat</button>

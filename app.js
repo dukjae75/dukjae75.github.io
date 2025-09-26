@@ -343,6 +343,32 @@ function handleCalibration() {
     if (calibrationProgress >= totalSamples) {
         // 마지막 1초 데이터만 사용
         const sampleData = calibrationBuffer.slice(-Math.floor(sampleRate * 1)); // 1초분 데이터
+        // 무음 감지: RMS가 임계값보다 낮으면 캘리브레이션 실패로 처리
+        const rmsValue = calculateRMS(sampleData);
+        const SILENCE_THRESHOLD = 0.0025; // 경험적으로 약한 소리 구분 (조절 가능)
+        if (rmsValue < SILENCE_THRESHOLD) {
+            // 사용자에게 경고
+            try {
+                alert('캘리브레이션 중 소리가 감지되지 않았습니다. 마이크가 켜져 있고 소리를 크게 내어 다시 시도하세요.');
+            } catch (e) {}
+
+            // 상태 재설정 및 버튼 재활성화
+            isCalibrating = false;
+            calibrationBuffer = [];
+            calibrationProgress = 0;
+            if (elements) {
+                if (elements.calibrationMessage) elements.calibrationMessage.style.display = 'none';
+                if (elements.progressContainer) elements.progressContainer.style.display = 'none';
+                try {
+                    if (calibrationStep === 'kick' && elements.calibrateKickBtn) elements.calibrateKickBtn.disabled = false;
+                    if (calibrationStep === 'snare' && elements.calibrateSnareBtn) elements.calibrateSnareBtn.disabled = false;
+                    if (calibrationStep === 'hihat' && elements.calibrateHihatBtn) elements.calibrateHihatBtn.disabled = false;
+                } catch (e) {}
+            }
+
+            updateDrumStatus();
+            return;
+        }
 
         // 저장
         drumSamples[calibrationStep] = sampleData;
