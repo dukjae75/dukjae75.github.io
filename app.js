@@ -42,6 +42,7 @@ const elements = {
     calibrationMessage: document.getElementById('calibrationMessage'),
     progressContainer: document.getElementById('progressContainer'),
     progressFill: document.getElementById('progressFill'),
+    inputLevelFill: document.getElementById('inputLevelFill'),
     kickStatus: document.getElementById('kickStatus'),
     snareStatus: document.getElementById('snareStatus'),
     hihatStatus: document.getElementById('hihatStatus'),
@@ -407,6 +408,9 @@ function detectDrum() {
     const dataArray = new Float32Array(bufferLength);
     analyser.getFloatTimeDomainData(dataArray);
 
+    // 입력 레벨 업데이트
+    updateInputLevel(dataArray);
+
     const currentBuffer = Array.from(dataArray.slice(0, 1024));
 
     // 패턴 매칭
@@ -482,6 +486,33 @@ function detectDrum() {
 
     if (isRecording) {
         animationFrame = requestAnimationFrame(detectDrum);
+    }
+}
+
+// 입력 레벨 계산 (RMS) 및 UI 업데이트
+function calculateRMS(buffer) {
+    if (!buffer || buffer.length === 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+        const v = buffer[i];
+        sum += v * v;
+    }
+    const mean = sum / buffer.length;
+    const rms = Math.sqrt(mean);
+    return rms;
+}
+
+function updateInputLevel(dataArray) {
+    try {
+        const rms = calculateRMS(dataArray);
+        // 0..1 범위로 가정, %로 변환
+        let level = Math.min(1, Math.max(0, rms * 1.5)); // 약간의 감도 증폭
+        const percent = Math.round(level * 100);
+
+        if (elements && elements.inputLevelFill) elements.inputLevelFill.style.width = percent + '%';
+        if (elements && document.getElementById('inputLevelValue')) document.getElementById('inputLevelValue').textContent = percent + '%';
+    } catch (e) {
+        // 안전 무시
     }
 }
 

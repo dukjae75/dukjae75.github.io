@@ -319,6 +319,23 @@
         .kick-fill { background: #ef4444; }
         .snare-fill { background: #eab308; }
         .hihat-fill { background: #06b6d4; }
+
+        /* 입력 레벨 미터 */
+        .input-meter {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+        }
+
+        .input-meter .detection-meter {
+            height: 0.75rem;
+            width: 100%;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .input-fill { background: #06b6d4; height: 100%; width: 0%; transition: width 80ms; }
         
         .stats-grid {
             display: grid;
@@ -426,6 +443,15 @@
         <!-- 헤더 -->
         <div class="header">
             <h1 class="title">🛡️ Guardians of Drum Beat</h1>
+        </div>
+
+        <!-- 입력 레벨 미터 -->
+        <div class="input-meter" aria-hidden="false" role="status" style="margin-bottom:1rem;">
+            <div style="width: 5rem; color:#9ca3af; font-size:0.875rem;">Input</div>
+            <div class="detection-meter">
+                <div id="inputLevelFill" class="input-fill" style="width: 0%"></div>
+            </div>
+            <div id="inputLevelValue" style="width:3.5rem; text-align:right; color:#9ca3af; font-size:0.875rem;">0%</div>
         </div>
 
         <!-- 캘리브레이션 섹션 -->
