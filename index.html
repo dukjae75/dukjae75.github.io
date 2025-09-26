@@ -442,16 +442,18 @@
             
             <div class="calibration-controls">
                 <div id="calibrationMessage" class="calibration-message" style="display: none;">
-                    준비 중...
+                    Select a drum to calibrate (Kick / Snare / Hi-Hat)
                 </div>
-                
+
                 <div id="progressContainer" class="progress-bar" style="display: none;">
                     <div id="progressFill" class="progress-fill" style="width: 0%"></div>
                 </div>
-                
-                <button id="calibrateBtn" class="btn btn-calibrate">
-                    Start Calibration
-                </button>
+
+                <div class="calibration-controls">
+                    <button id="calibrateKickBtn" class="btn btn-calibrate">Calibrate Kick</button>
+                    <button id="calibrateSnareBtn" class="btn btn-calibrate">Calibrate Snare</button>
+                    <button id="calibrateHihatBtn" class="btn btn-calibrate">Calibrate Hi-Hat</button>
+                </div>
             </div>
         </div>
 

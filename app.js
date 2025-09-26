@@ -23,6 +23,7 @@ let drumLevels = {
 };
 let calibrationBuffer = [];
 let calibrationProgress = 0;
+let sequentialCalibration = false; // true = kick->snare->hihat flow, false = single-drum
 let bpmChartData = [];
 let chartCanvas = null;
 let chartCtx = null;
@@ -35,6 +36,9 @@ const elements = {
     accuracyFill: document.getElementById('accuracyFill'),
     monitorBtn: document.getElementById('monitorBtn'),
     calibrateBtn: document.getElementById('calibrateBtn'),
+    calibrateKickBtn: document.getElementById('calibrateKickBtn'),
+    calibrateSnareBtn: document.getElementById('calibrateSnareBtn'),
+    calibrateHihatBtn: document.getElementById('calibrateHihatBtn'),
     calibrationMessage: document.getElementById('calibrationMessage'),
     progressContainer: document.getElementById('progressContainer'),
     progressFill: document.getElementById('progressFill'),
@@ -333,36 +337,61 @@ function handleCalibration() {
     if (calibrationBuffer.length > maxBuffer) {
         calibrationBuffer = calibrationBuffer.slice(-maxBuffer);
     }
-    
+
     // 충분한 데이터가 수집되었을 때
     if (calibrationProgress >= totalSamples) {
-    // 마지막 1초 데이터만 사용
-    const sampleData = calibrationBuffer.slice(-Math.floor(sampleRate * 1)); // 1초분 데이터
-        
+        // 마지막 1초 데이터만 사용
+        const sampleData = calibrationBuffer.slice(-Math.floor(sampleRate * 1)); // 1초분 데이터
+
+        // 저장
         drumSamples[calibrationStep] = sampleData;
         calibrationBuffer = [];
         calibrationProgress = 0;
-        
-        // 다음 단계로 이동
-        if (calibrationStep === 'kick') {
-            calibrationStep = 'snare';
-        } else if (calibrationStep === 'snare') {
-            calibrationStep = 'hihat';
-        } else if (calibrationStep === 'hihat') {
-            calibrationStep = 'done';
+
+        // 캘리브레이션 버튼 재활성화
+        if (elements) {
+            try {
+                if (calibrationStep === 'kick' && elements.calibrateKickBtn) elements.calibrateKickBtn.disabled = false;
+                if (calibrationStep === 'snare' && elements.calibrateSnareBtn) elements.calibrateSnareBtn.disabled = false;
+                if (calibrationStep === 'hihat' && elements.calibrateHihatBtn) elements.calibrateHihatBtn.disabled = false;
+            } catch (e) {}
+        }
+
+        // sequential 모드이면 다음 스텝으로 진행
+        if (sequentialCalibration) {
+            if (calibrationStep === 'kick') {
+                calibrationStep = 'snare';
+            } else if (calibrationStep === 'snare') {
+                calibrationStep = 'hihat';
+            } else if (calibrationStep === 'hihat') {
+                calibrationStep = 'done';
+                isCalibrating = false;
+
+                if (elements) {
+                    if (elements.calibrationMessage) elements.calibrationMessage.style.display = 'none';
+                    if (elements.progressContainer) elements.progressContainer.style.display = 'none';
+                    if (elements.calibrateBtn) {
+                        elements.calibrateBtn.textContent = 'Re-Calibrate';
+                        elements.calibrateBtn.disabled = false;
+                    }
+                }
+
+                updateDrumStatus();
+                return;
+            }
+
+            updateCalibrationMessage();
+            if (elements && elements.progressFill) elements.progressFill.style.width = '0%';
+        } else {
+            // single-drum 모드: 캘리브레이션 종료
             isCalibrating = false;
-            
-            elements.calibrationMessage.style.display = 'none';
-            elements.progressContainer.style.display = 'none';
-            elements.calibrateBtn.textContent = 'Re-Calibrate';
-            elements.calibrateBtn.disabled = false;
-            
+            if (elements) {
+                if (elements.calibrationMessage) elements.calibrationMessage.style.display = 'none';
+                if (elements.progressContainer) elements.progressContainer.style.display = 'none';
+            }
             updateDrumStatus();
             return;
         }
-        
-        updateCalibrationMessage();
-        elements.progressFill.style.width = '0%';
     }
 
     if (isCalibrating) {
@@ -505,9 +534,11 @@ async function startCalibration() {
     if (success) {
         isCalibrating = true;
         calibrationStep = 'kick';
+        sequentialCalibration = true;
         calibrationBuffer = [];
         calibrationProgress = 0;
         if (elements) {
+            // backward-compatible: legacy single-button is disabled if present
             if (elements.calibrateBtn) elements.calibrateBtn.disabled = true;
             if (elements.calibrationMessage) elements.calibrationMessage.style.display = 'block';
             if (elements.progressContainer) elements.progressContainer.style.display = 'block';
@@ -517,6 +548,36 @@ async function startCalibration() {
         updateCalibrationMessage();
         handleCalibration();
     }
+}
+
+// 캘리브레이션 시작 (개별 드럼용)
+async function startCalibrationFor(type) {
+    if (!['kick', 'snare', 'hihat'].includes(type)) return;
+
+    const success = await initAudio();
+    if (!success) return;
+
+    isCalibrating = true;
+    calibrationStep = type;
+    calibrationBuffer = [];
+    calibrationProgress = 0;
+
+    if (elements) {
+        // disable only the specific button if present
+        try {
+            if (type === 'kick' && elements.calibrateKickBtn) elements.calibrateKickBtn.disabled = true;
+            if (type === 'snare' && elements.calibrateSnareBtn) elements.calibrateSnareBtn.disabled = true;
+            if (type === 'hihat' && elements.calibrateHihatBtn) elements.calibrateHihatBtn.disabled = true;
+            if (elements.calibrationMessage) elements.calibrationMessage.style.display = 'block';
+            if (elements.progressContainer) elements.progressContainer.style.display = 'block';
+            if (elements.progressFill) elements.progressFill.style.width = '0%';
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    updateCalibrationMessage();
+    handleCalibration();
 }
 
 // 모니터링 토글
@@ -592,6 +653,9 @@ if (elements.targetBpm) {
 
 if (elements.calibrateBtn) elements.calibrateBtn.addEventListener('click', startCalibration);
 if (elements.monitorBtn) elements.monitorBtn.addEventListener('click', toggleMonitoring);
+if (elements.calibrateKickBtn) elements.calibrateKickBtn.addEventListener('click', () => startCalibrationFor('kick'));
+if (elements.calibrateSnareBtn) elements.calibrateSnareBtn.addEventListener('click', () => startCalibrationFor('snare'));
+if (elements.calibrateHihatBtn) elements.calibrateHihatBtn.addEventListener('click', () => startCalibrationFor('hihat'));
 
 // 화면 리사이즈 시 차트 업데이트
 window.addEventListener('resize', () => {
