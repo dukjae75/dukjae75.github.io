@@ -27,6 +27,8 @@ let sequentialCalibration = false; // true = kick->snare->hihat flow, false = si
 let bpmChartData = [];
 let chartCanvas = null;
 let chartCtx = null;
+// 프로그램 버전 (여기 값을 수정하면 UI에 표시되는 버전이 변경됩니다)
+const APP_VERSION = 'v1.1.0';
 
 // DOM 요소들
 const elements = {
@@ -868,6 +870,12 @@ window.addEventListener('load', () => {
     } catch (err) {
         console.warn('Initialization warning:', err);
     }
+
+    // 앱 버전 배너 업데이트
+    try {
+        const verEl = document.getElementById('appVersionText');
+        if (verEl) verEl.textContent = APP_VERSION;
+    } catch (e) {}
 });
 
 // 오디오 컨텍스트 자동 재개 (iOS Safari 대응)
