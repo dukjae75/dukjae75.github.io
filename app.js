@@ -29,6 +29,10 @@ let chartCanvas = null;
 let chartCtx = null;
 // 프로그램 버전 (여기 값을 수정하면 UI에 표시되는 버전이 변경됩니다)
 const APP_VERSION = 'v1.1.0';
+// GitHub repo 정보 (owner/repo)
+const GITHUB_REPO = 'dukjae75/dukjae75.github.io';
+// 현재 커밋(짧은 해시)을 자동으로 넣습니다. 이 값은 inject-version 스크립트에서 교체할 수도 있습니다.
+const COMMIT_HASH = '2b511b3';
 
 // DOM 요소들
 const elements = {
@@ -875,6 +879,25 @@ window.addEventListener('load', () => {
     try {
         const verEl = document.getElementById('appVersionText');
         if (verEl) verEl.textContent = APP_VERSION;
+        // 배너 클릭 시 모달 오픈
+        const banner = document.getElementById('appVersionBanner');
+        const modal = document.getElementById('versionModal');
+        const modalVersionText = document.getElementById('modalVersionText');
+        const releasesLink = document.getElementById('releasesLink');
+        const commitLink = document.getElementById('commitLink');
+        const closeModalBtn = document.getElementById('closeVersionModal');
+
+        if (modalVersionText) modalVersionText.textContent = APP_VERSION;
+        if (releasesLink) releasesLink.href = `https://github.com/${GITHUB_REPO}/releases`;
+        if (commitLink) commitLink.href = `https://github.com/${GITHUB_REPO}/commit/${COMMIT_HASH}`;
+
+        if (banner && modal) {
+            banner.style.cursor = 'pointer';
+            banner.addEventListener('click', () => {
+                modal.style.display = 'flex';
+            });
+        }
+        if (closeModalBtn && modal) closeModalBtn.addEventListener('click', () => { modal.style.display = 'none'; });
     } catch (e) {}
 });
 

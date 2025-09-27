@@ -458,7 +458,7 @@
             <h1 class="title">🛡️ Guardians of Drum Beat</h1>
         </div>
         <!-- 버전 배너 (상단에 항상 표시) -->
-        <div id="appVersionBanner" style="position:fixed;top:0;left:0;right:0;background:rgba(6,182,212,0.06);color:#06b6d4;text-align:center;padding:0.25rem 0;font-weight:600;z-index:1001;border-bottom:1px solid rgba(6,182,212,0.06);">
+        <div id="appVersionBanner" class="version-banner" style="position:fixed;top:0;left:0;right:0;background:rgba(6,182,212,0.06);color:#06b6d4;text-align:center;padding:0.25rem 0;font-weight:600;z-index:1001;border-bottom:1px solid rgba(6,182,212,0.06);">
             Version: <span id="appVersionText">v1.1.0</span>
         </div>
 
@@ -625,6 +625,23 @@
         <div>
             <button id="installButton" class="install-button">Install</button>
             <button id="closePrompt" class="close-button">×</button>
+        </div>
+    </div>
+
+    <!-- Version modal -->
+    <div id="versionModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:2000;">
+        <div style="background:#0b1220;color:white;border-radius:0.5rem;padding:1rem;max-width:420px;width:90%;box-shadow:0 10px 30px rgba(0,0,0,0.6);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                <strong>Version History</strong>
+                <button id="closeVersionModal" style="background:none;border:none;color:#9ca3af;font-size:1.25rem;cursor:pointer;">×</button>
+            </div>
+            <div style="font-size:0.9rem;color:#cbd5e1;margin-bottom:0.75rem;">
+                Current: <span id="modalVersionText">v1.1.0</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;">
+                <a id="releasesLink" href="#" target="_blank" style="color:#06b6d4;text-decoration:none;">View GitHub Releases</a>
+                <a id="commitLink" href="#" target="_blank" style="color:#06b6d4;text-decoration:none;">View this commit on GitHub</a>
+            </div>
         </div>
     </div>
 
