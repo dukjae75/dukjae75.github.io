@@ -1,0 +1,11 @@
+{
+  "name": "guardians-of-drum-beat",
+  "version": "1.1.0",
+  "description": "Guardians of Drum Beat - static site",
+  "scripts": {
+    "inject-version": "node scripts/inject-version.js",
+    "inject-and-commit": "node scripts/inject-version.js && git add app.js index.html && git commit -m \"chore: inject version from package.json\" && git push origin main"
+  },
+  "author": "dukjae75",
+  "license": "MIT"
+}
